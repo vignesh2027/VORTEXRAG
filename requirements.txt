@@ -1,0 +1,9 @@
+numpy>=1.24.0
+
+# Optional — install for full functionality
+# sentence-transformers>=2.2.0
+# spacy>=3.5.0
+# faiss-cpu>=1.7.0
+# networkx>=3.0
+# rouge-score>=0.1.2
+# pytest>=7.0
