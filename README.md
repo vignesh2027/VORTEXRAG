@@ -6,13 +6,15 @@
 
 *"The only RAG that kills semantic drift and context poisoning simultaneously."*
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20285144.svg)](https://doi.org/10.5281/zenodo.20285144)
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0004--9777--7592-brightgreen)](https://orcid.org/0009-0004-9777-7592)
 [![CI](https://github.com/vignesh2027/VORTEXRAG/actions/workflows/ci.yml/badge.svg)](https://github.com/vignesh2027/VORTEXRAG/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![arXiv](https://img.shields.io/badge/arXiv-2025.XXXXX-b31b1b.svg)](#citation)
 [![GitHub Pages](https://img.shields.io/badge/docs-live-6C47FF)](https://vignesh2027.github.io/VORTEXRAG)
+[![Views](https://img.shields.io/badge/Zenodo-Published-orange)](https://doi.org/10.5281/zenodo.20285144)
 
-[**Live Demo**](https://vignesh2027.github.io/VORTEXRAG) · [**Documentation**](#documentation) · [**Quickstart**](#quickstart) · [**API Reference**](#api-reference) · [**Paper**](#citation)
+[**📄 Paper (Zenodo)**](https://doi.org/10.5281/zenodo.20285144) · [**🔬 ORCID**](https://orcid.org/0009-0004-9777-7592) · [**Live Demo**](https://vignesh2027.github.io/VORTEXRAG) · [**Documentation**](#documentation) · [**Quickstart**](#quickstart) · [**API Reference**](#api-reference)
 
 </div>
 
