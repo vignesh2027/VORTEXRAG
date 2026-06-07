@@ -1,9 +1,15 @@
 numpy>=1.24.0
 
+# Testing (required to run pytest test suite)
+pytest>=7.0
+pytest-cov>=4.0
+
 # Optional — install for full functionality
-# sentence-transformers>=2.2.0
-# spacy>=3.5.0
-# faiss-cpu>=1.7.0
-# networkx>=3.0
-# rouge-score>=0.1.2
-# pytest>=7.0
+# sentence-transformers>=2.2.0   # Real SBERT semantic embeddings (TVE semantic arm)
+# spacy>=3.5.0                    # Real parse-tree syntactic/causal features
+# faiss-cpu>=1.7.0                # Fast approximate nearest neighbour index
+# networkx>=3.0                   # Causal dependency graph construction
+
+# Demo and evaluation
+# gradio>=4.0                     # Interactive Gradio demo (examples/demo_gradio.py)
+# pandas>=1.5.0                   # Results tables in benchmark_eval.py
