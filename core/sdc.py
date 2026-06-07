@@ -393,7 +393,6 @@ class SemanticDriftCorrector:
         target_count = int(len(results) * target_acceptance_rate)
 
         lo, hi = 0.05, 5.0
-        best_tau = self.config.tau
 
         for _ in range(n_steps):
             mid = (lo + hi) / 2.0
@@ -401,7 +400,6 @@ class SemanticDriftCorrector:
             n_acc = int(np.sum(sds_scores >= self.config.delta_sdc))
 
             if abs(n_acc - target_count) <= 1:
-                best_tau = mid
                 break
             elif n_acc < target_count:
                 lo = mid      # need to accept more → increase τ
@@ -482,8 +480,7 @@ class SemanticDriftCorrector:
         Useful for choosing τ: plot acceptance_rate vs tau to see the
         "acceptance curve" and pick a τ that gives the desired trade-off.
         """
-        drift_norms = self.batch_sds(query_vec, candidates)
-        # Actually we need drift norms not SDS — recompute
+        # Recompute drift norms directly (batch_sds returns SDS scores, not norms)
         cau_matrix = np.stack([c.tve_vec.causal for c in candidates])
         q_cau = query_vec.causal
         drift_norm_arr = np.linalg.norm(q_cau[np.newaxis, :] - cau_matrix, axis=1)
