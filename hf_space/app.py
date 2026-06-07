@@ -833,5 +833,4 @@ with gr.Blocks(title="VORTEXRAG — 7-Layer Causal RAG") as demo:
             gr.Markdown(CITATION_TEXT)
 
 
-if __name__ == "__main__":
-    demo.launch()
+demo.launch()
