@@ -174,11 +174,12 @@ class TestTVEScoreRange:
         cos_syn = float(np.dot(q_vec.syntactic, c_vec.syntactic))
         cos_cau = float(np.dot(q_vec.causal, c_vec.causal))
 
-        expected = 0.5 * cos_sem + 0.3 * cos_syn + 0.2 * cos_cau
+        raw = 0.5 * cos_sem + 0.3 * cos_syn + 0.2 * cos_cau
+        expected = max(0.0, raw)   # tve_score clips to [0, 1]
         actual = encoder.tve_score(q_vec, c_vec)
 
         assert abs(actual - expected) < 1e-5, (
-            f"TVE formula mismatch: expected {expected:.6f}, got {actual:.6f}"
+            f"TVE formula mismatch: expected {expected:.6f} (raw={raw:.6f}), got {actual:.6f}"
         )
 
 

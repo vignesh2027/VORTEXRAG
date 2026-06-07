@@ -527,7 +527,7 @@ class TriVectorEncoder:
         syn = self.cosine_sim(q_vec.syntactic, c_vec.syntactic)
         cau = self.cosine_sim(q_vec.causal, c_vec.causal)
         α, β, γ = self.config.alpha, self.config.beta, self.config.gamma
-        tve = α * sem + β * syn + γ * cau
+        tve = float(np.clip(α * sem + β * syn + γ * cau, 0.0, 1.0))
         return {"semantic": sem, "syntactic": syn, "causal": cau, "tve": tve}
 
     def tve_score(self, q_vec: TVEVector, c_vec: TVEVector) -> float:
@@ -574,7 +574,7 @@ class TriVectorEncoder:
         syn_scores = np.clip(syn_scores, -1.0, 1.0)
         cau_scores = np.clip(cau_scores, -1.0, 1.0)
 
-        return α * sem_scores + β * syn_scores + γ * cau_scores
+        return np.clip(α * sem_scores + β * syn_scores + γ * cau_scores, 0.0, 1.0)
 
     # ──── Analysis and Interpretability ───────────────────────────────────────
 

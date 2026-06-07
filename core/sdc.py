@@ -115,7 +115,10 @@ class SDCConfig:
     strict_mode: bool = False  # if True, δ_SDC is raised to 0.80
 
     def __post_init__(self):
-        self.apply_domain_preset()
+        # Only auto-apply domain preset when tau was not explicitly set.
+        # tau == 0.8 (the dataclass default) means "derive from domain".
+        if self.tau == 0.8:
+            self.apply_domain_preset()
         if self.strict_mode:
             self.delta_sdc = max(self.delta_sdc, 0.80)
 
