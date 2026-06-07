@@ -336,6 +336,8 @@ class CausalContextBuilder:
 
         Returns the deduplicated list, still sorted by phi_norm descending.
         """
+        if not self.config.enable_dedup and threshold is None:
+            return ranked_chunks
         thresh = threshold if threshold is not None else self.config.dedup_threshold
         if len(ranked_chunks) <= 1:
             return ranked_chunks
