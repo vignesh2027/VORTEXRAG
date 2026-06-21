@@ -3191,6 +3191,25 @@ Author ORCID: [0009-0004-9777-7592](https://orcid.org/0009-0004-9777-7592)
 
 ---
 
+## Contributing
+
+Contributions are welcome! Check the [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started.
+
+**Open issues looking for contributors:**
+
+| Issue | Difficulty | Skills |
+|-------|-----------|--------|
+| [Add BEIR benchmark evaluation script](https://github.com/vignesh2027/VORTEXRAG/issues/3) | Good first issue | Python, BEIR |
+| [Add LangChain integration](https://github.com/vignesh2027/VORTEXRAG/issues/4) | Good first issue | Python, LangChain |
+| [Add biomedical domain preset](https://github.com/vignesh2027/VORTEXRAG/issues/5) | Easy | Python |
+
+Comment on any issue to get it assigned. All contributors are listed in the GitHub contributors graph.
+
+[![Contributors](https://img.shields.io/github/contributors/vignesh2027/VORTEXRAG)](https://github.com/vignesh2027/VORTEXRAG/graphs/contributors)
+[![Issues](https://img.shields.io/github/issues/vignesh2027/VORTEXRAG)](https://github.com/vignesh2027/VORTEXRAG/issues)
+
+---
+
 ## License
 
 VORTEXRAG is released under the MIT License.
