@@ -134,3 +134,59 @@ class TestSDCScoring:
 
         assert sds_lenient > sds_strict, \
             f"Lenient tau should give higher SDS: {sds_lenient:.3f} vs {sds_strict:.3f}"
+
+
+class TestBiomedicalPreset:
+    """Tests for the biomedical domain preset (Issue #5)."""
+
+    def test_biomedical_preset_exists(self):
+        config = SDCConfig(domain="biomedical")
+        assert config.tau == 0.32, f"Expected tau=0.32, got {config.tau}"
+
+    def test_biomedical_stricter_than_medical(self):
+        """biomedical (0.32) should be stricter than medical (0.35) — lower tau."""
+        biomedical = SDCConfig(domain="biomedical")
+        medical = SDCConfig(domain="medical")
+        assert biomedical.tau < medical.tau, (
+            f"biomedical tau ({biomedical.tau}) should be < medical tau ({medical.tau})"
+        )
+
+    def test_biomedical_more_lenient_than_scientific(self):
+        """biomedical (0.32) should be more lenient than scientific (0.30)."""
+        biomedical = SDCConfig(domain="biomedical")
+        scientific = SDCConfig(domain="scientific")
+        assert biomedical.tau > scientific.tau, (
+            f"biomedical tau ({biomedical.tau}) should be > scientific tau ({scientific.tau})"
+        )
+
+    def test_biomedical_between_scientific_and_medical(self):
+        """biomedical τ sits between scientific and medical — correct ordering."""
+        scientific = SDCConfig(domain="scientific")
+        biomedical = SDCConfig(domain="biomedical")
+        medical = SDCConfig(domain="medical")
+        assert scientific.tau < biomedical.tau < medical.tau
+
+    def test_biomedical_sdc_initializes(self):
+        sdc = SemanticDriftCorrector(SDCConfig(domain="biomedical"))
+        assert sdc.config.tau == 0.32
+
+    def test_biomedical_filter_works(self):
+        """SDC with biomedical preset should filter without error."""
+        from core.vrc import SpiralCandidate
+        sdc = SemanticDriftCorrector(SDCConfig(domain="biomedical"))
+        q = make_tve_vec(sem_seed=10, cau_seed=11)
+        candidates = [
+            SpiralCandidate(
+                chunk_id=i,
+                chunk_text="biomarker expression in septic patients",
+                tve_score=0.9 - i * 0.05,
+                radial_dist=0.1 * i,
+                theta=0.05 * i,
+                spiral_rank=0.9 - i * 0.05,
+                tve_vec=make_tve_vec(cau_seed=i),
+            )
+            for i in range(5)
+        ]
+        results = sdc.filter(q, candidates)
+        assert isinstance(results, list)
+        assert len(results) == 5

@@ -79,6 +79,7 @@ from .vrc import SpiralCandidate
 DOMAIN_TAUS: dict[str, float] = {
     "scientific":    0.30,   # Strictest — progenitor chains must match exactly
     "medical":       0.35,   # Very strict — mechanism precision is critical
+    "biomedical":    0.32,   # PubMed/BioASQ — dense causal chains, between scientific and medical
     "legal":         0.40,   # Strict — precedent chains are directional
     "cybersecurity": 0.45,   # Strict — attack vectors are causally specific
     "financial":     0.50,   # Moderate — causal + temporal precision needed
