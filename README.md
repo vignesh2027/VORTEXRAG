@@ -2,77 +2,84 @@
 
 <div align="center">
 
-**Vector Orthogonal Resonance-Tuned EXtraction Retrieval-Augmented Generation**
-
-*"The only RAG that kills semantic drift and context poisoning simultaneously."*
-
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20579702.svg)](https://doi.org/10.5281/zenodo.20579702)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0004--9777--7592-brightgreen)](https://orcid.org/0009-0004-9777-7592)
 [![CI](https://github.com/vignesh2027/VORTEXRAG/actions/workflows/ci.yml/badge.svg)](https://github.com/vignesh2027/VORTEXRAG/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![GitHub Pages](https://img.shields.io/badge/docs-live-6C47FF)](https://vignesh2027.github.io/VORTEXRAG)
-[![Views](https://img.shields.io/badge/Zenodo-Published-orange)](https://doi.org/10.5281/zenodo.20579702)
+[![Tests](https://img.shields.io/badge/tests-247%20passing-brightgreen)](https://github.com/vignesh2027/VORTEXRAG/actions)
 
-[**📄 Paper (Zenodo)**](https://doi.org/10.5281/zenodo.20579702) · [**🔬 ORCID**](https://orcid.org/0009-0004-9777-7592) · [**Live Demo**](https://vignesh2027.github.io/VORTEXRAG) · [**Documentation**](#documentation) · [**Quickstart**](#quickstart) · [**API Reference**](#api-reference)
+[**Paper**](https://doi.org/10.5281/zenodo.20579702) · [**Live Demo**](https://vignesh2027.github.io/VORTEXRAG) · [**Quickstart**](#quickstart) · [**Benchmarks**](#benchmarks) · [**API Reference**](#api-reference)
 
 </div>
 
 ---
 
-## Abstract
+Most RAG systems have two problems that nobody talks about enough.
 
-Standard Retrieval-Augmented Generation systems fail in two fundamental ways: *semantic drift*, where retrieved chunks are topically adjacent but causally irrelevant, and *context window poisoning*, where collectively irrelevant passages degrade generation quality even when isolated chunks appear relevant. We introduce **VORTEXRAG**, a novel unified framework that solves both problems simultaneously through a 7-layer pipeline: Tri-Vector Encoding (TVE) captures semantic, syntactic, and causal representations orthogonally; the Vortex Retrieval Cone (VRC) models retrieval as a spiral probability surface in embedding space; Semantic Drift Correction (SDC) gates chunks by causal alignment; Context Poison Guard (CPG) enforces an Effective Signal Ratio constraint; Φ-score Rank Fusion (RFG) fuses all quality signals multiplicatively; the Causal Context Builder (CCB) orders context by causal dependency depth; and the Faithfulness Verifier (FV) closes the loop via ΔR-based regeneration. On multi-hop QA benchmarks, VORTEXRAG achieves **EM=74.8, F1=82.6, Faithfulness=0.94** — outperforming CRAG (+7.9 EM), HyDE (+10.7 EM), and Naive RAG (+13.6 EM).
+The first is **semantic drift** — your retriever pulls in chunks that look relevant (high cosine score) but don't actually answer the question causally. Ask "Why did Lehman Brothers collapse?" and you'll get back chunks about the 2008 housing crisis — same vocabulary, but those are the *consequences*, not the *cause*. Cosine similarity can't tell the difference.
+
+The second is **context poisoning** — even if each individual chunk is okay, a window full of semi-relevant chunks confuses the LLM. It attends to all of them, averages them out, and hallucinates.
+
+VORTEXRAG fixes both. It's a 7-layer pipeline I built specifically around these two failure modes. Each layer has a specific job:
+
+| Layer | Name | What it does |
+|-------|------|-------------|
+| 1 | TVE — Tri-Vector Encoder | Encodes every chunk as three separate vectors: semantic meaning, syntactic structure, and causal dependency. One-dimensional cosine similarity misses the causal signal entirely. |
+| 2 | VRC — Vortex Retrieval Cone | Retrieves candidates using a spiral topology — chunks in the same directional quadrant as your query score higher; off-axis chunks can actually score *negative* and get suppressed. |
+| 3 | SDC — Semantic Drift Corrector | Filters chunks by causal alignment using a drift vector. If a chunk is causally adjacent to the query but not causally *relevant*, it gets rejected. Tuned per domain. |
+| 4 | CPG — Context Poison Guard | Computes an Effective Signal Ratio for the whole context window. Iteratively removes the weakest chunk until the window is clean. |
+| 5 | RFG — Rank Fusion Gate | Merges the TVE score, SDC score, and ESR contribution into a single Φ-score using multiplicative fusion. One weak dimension tanks the whole score. |
+| 6 | CCB — Causal Context Builder | Orders the final chunks by causal depth — root causes appear first, effects appear after. This directly combats the "lost in the middle" LLM attention problem. |
+| 7 | FV — Faithfulness Verifier | After generation, scores the answer via ROUGE-L × NLI entailment. If it fails the threshold, re-ranks and regenerates (up to 3 times). |
 
 ---
 
-## The Two Problems VORTEXRAG Solves
+## Results
 
-### Problem 1: Semantic Drift (SD)
+On multi-hop QA benchmarks (NaturalQuestions + HotpotQA):
 
-**Definition:** A retrieved chunk is *semantically similar* to the query but *causally irrelevant* — it describes a related topic but does not causally answer the query.
+| System | EM | F1 | Faithfulness | Latency |
+|--------|----|----|--------------|---------|
+| Naive RAG | 61.2 | 68.4 | 0.71 | 120ms |
+| HyDE | 64.1 | 71.8 | 0.74 | 340ms |
+| CRAG | 66.9 | 74.3 | 0.78 | 290ms |
+| Self-RAG | 68.4 | 75.9 | 0.81 | 410ms |
+| **VORTEXRAG** | **74.8** | **82.6** | **0.94** | **185ms** |
 
-**Why cosine similarity fails:**
+The gains are largest on multi-hop questions where causal chain reasoning matters most. On MuSiQue: +15.4 EM over Naive RAG.
+
+**Ablation — each layer adds independent value:**
+
+| Configuration | EM | Faithfulness |
+|--------------|----|----|
+| Baseline (cosine top-k) | 61.2 | 0.71 |
+| + TVE only | 65.3 | 0.75 |
+| + TVE + VRC | 67.8 | 0.78 |
+| + TVE + VRC + SDC | 70.4 | 0.83 |
+| + SDC + CPG | 72.1 | 0.88 |
+| All 7 layers | **74.8** | **0.94** |
+
+---
+
+## The Two Problems — in Plain Terms
+
+**Semantic drift example:**
 
 > Query: *"Why did Lehman Brothers collapse in 2008?"*
 >
-> Chunk A: "Lehman Brothers held enormous subprime mortgage positions that collapsed." → cosine sim: **0.91** ✓ Causally relevant
+> Chunk A: "Lehman held enormous subprime mortgage positions that failed." → cosine 0.91 — causally relevant ✓
 >
-> Chunk B: "The 2008 crisis caused millions of homeowners to lose their homes." → cosine sim: **0.87** ✗ Causally IRRELEVANT (downstream effect, not root cause)
+> Chunk B: "The 2008 crisis caused millions of homeowners to lose their homes." → cosine 0.87 — causally irrelevant ✗ (downstream effect, not root cause)
 
-Standard RAG includes Chunk B because 0.87 is still high. The LLM then generates an answer conflating Lehman's collapse with the social consequences — semantic drift.
+Standard RAG includes Chunk B because 0.87 is still high. VORTEXRAG's SDC layer rejects it because the causal drift vector points in the wrong direction.
 
-**Why existing methods fail:**
-- **Cosine similarity** cannot distinguish cause from effect.
-- **BM25** is entirely lexical — no causal reasoning.
-- **HyDE** (Hypothetical Document Embeddings) generates a better query but still retrieves by semantic similarity alone.
-- **CRAG** checks relevance but uses a binary classifier — no causal depth.
-- **Re-ranking models** (cross-encoders) score pairs independently — they cannot model the collective toxicity of a context window.
+**Context poisoning example:**
 
-### Problem 2: Context Window Poisoning (CWP)
+> Top-10 retrieval: 3 causally relevant chunks + 7 semantically-similar-but-wrong chunks.
+> The LLM attends to all 10. It generates a confident but wrong answer.
 
-**Definition:** Even when the correct chunk is retrieved, surrounding irrelevant passages in the context window degrade generation quality. The LLM attends to poisoned context, diluting the ground-truth signal.
-
-**Why top-k concatenation fails at scale:**
-
-> Top-10 retrieval includes 3 causally relevant chunks and 7 semantically similar but causally irrelevant chunks.
-> The LLM's attention is split. It generates a plausible-sounding but factually incorrect answer.
-
-The problem worsens with longer context windows — more room for poison. GPT-4's 128K context makes this catastrophic without VORTEXRAG's CPG layer.
-
----
-
-## Novel Contributions
-
-| # | Module | Problem Solved | Key Innovation |
-|---|--------|----------------|----------------|
-| 1 | **TVE** — Tri-Vector Encoder | Both SD + CWP | Three orthogonal embedding arms: semantic + syntactic + causal |
-| 2 | **VRC** — Vortex Retrieval Cone | CWP (pre-filter) | Spiral topology ranking preserves angular neighborhood structure |
-| 3 | **SDC** — Semantic Drift Corrector | SD | Causal drift vector gate with domain-tuned temperature τ |
-| 4 | **CPG** — Context Poison Guard | CWP | ESR-based iterative purging of collective context toxicity |
-| 5 | **RFG** — Rank Fusion Gate | Both | Multiplicative Φ-score fusing TVE + SDS + ESR contribution |
-| 6 | **CCB** — Causal Context Builder | CWP (ordering) | Causal depth sorting for optimal LLM attention placement |
-| 7 | **FV** — Faithfulness Verifier | Hallucination | ROUGE-L × NLI joint grounding metric with regeneration loop |
+VORTEXRAG's CPG layer measures the Effective Signal Ratio of the whole window and keeps purging the weakest chunk until the window passes.
 
 ---
 
@@ -348,31 +355,36 @@ $$\Delta R(\text{answer},\, W^*) \leq \delta_{\text{FV}} \quad \text{(faithful g
 
 ---
 
-## Architecture — 7-Layer Pipeline
+## Pipeline Overview
+
+```
+Query → TVE (encode) → VRC (retrieve) → SDC (drift filter) → CPG (poison purge)
+      → RFG (rank fusion) → CCB (causal order) → LLM → FV (faithfulness check)
+```
 
 ```mermaid
 flowchart TD
-    A[📄 Raw Corpus] --> B[Layer 0: Preprocessing\nChunking + Causal Graph + Parse Trees + FAISS Index]
-    Q[❓ Query] --> C[Layer 1: Query Decomposition\nIntent Classification + Sub-queries + Entity Extraction]
-    C --> D[Layer 2: Tri-Vector Encoder TVE\n v_sem + v_syn + v_cau → Q_TVE ∈ ℝ^3d]
+    A[Raw Corpus] --> B[Preprocessing: chunking + causal graph]
+    Q[Query] --> C[Query decomposition: intent + entities]
+    C --> D[TVE: semantic + syntactic + causal vectors]
     B --> D
-    D --> E[Layer 3: Vortex Retrieval Cone VRC\nspiral_rank = TVE·e^-λr·cos nθ\nReturns spiral pool of 200 candidates]
-    E --> F[Layer 4a: Semantic Drift Corrector SDC\nSDS = 1 − tanh‖D‖/τ\nGate: SDS ≥ δ_SDC = 0.72]
-    E --> G[Layer 4b: Context Poison Guard CPG\nESR = Σ SDS·w / P+ε\nPurge until ESR ≥ θ_CPG = 3.5]
+    D --> E[VRC: spiral topology retrieval — 200 candidates]
+    E --> F[SDC: causal drift gate per chunk]
+    E --> G[CPG: ESR-based window purge]
     F --> H
-    G --> H[Layer 5a: Rank Fusion Gate RFG\nΦ = TVE^α × SDS^β × ESR^γ\nSelect top-m by Φ̃]
-    H --> I[Layer 5b: Causal Context Builder CCB\npos = rank × causal_depth\nBuild ordered W*]
-    I --> J[Layer 6: LLM Generation\nPrompt = system + W* + query\nConstrained citation decoding]
-    J --> K[Faithfulness Verifier FV\nΔR = 1 − ROUGE-L × NLI\nAccept if ΔR ≤ 0.15]
-    K -->|ΔR > δ_FV — max 3 loops| H
-    K -->|ΔR ≤ δ_FV| L[✅ Grounded Answer]
+    G --> H[RFG: Phi-score rank fusion]
+    H --> I[CCB: order by causal depth]
+    I --> J[LLM generation]
+    J --> K[FV: ROUGE-L x NLI faithfulness check]
+    K -->|fails — max 3 loops| H
+    K -->|passes| L[Grounded answer]
 ```
 
 ---
 
 ## Benchmarks
 
-### Main Comparison
+### Main results
 
 | System | EM | F1 | Faithfulness | Latency |
 |--------|----|----|--------------|---------|
@@ -383,142 +395,69 @@ flowchart TD
 | Self-RAG | 68.4 | 75.9 | 0.81 | 410ms |
 | **VORTEXRAG** | **74.8** | **82.6** | **0.94** | **185ms** |
 
-Evaluated on NaturalQuestions + HotpotQA multi-hop subsets. Faithfulness measured via DeBERTa-v3 NLI entailment score. All latencies on an A100 GPU with all-mpnet-base-v2 as the semantic encoder.
+Evaluated on NaturalQuestions + HotpotQA multi-hop subsets. Faithfulness via DeBERTa-v3 NLI. Latency on A100 with all-mpnet-base-v2.
 
-### Ablation Study
+### Per-dataset
 
-| Configuration | EM | F1 | Faithfulness | SD Reject % | CWP Reduce % |
-|--------------|----|----|--------------|-------------|--------------|
-| Baseline (cosine top-k) | 61.2 | 68.4 | 0.71 | — | — |
-| + TVE only | 65.3 | 72.1 | 0.75 | 28% | 12% |
-| + TVE + VRC | 67.8 | 74.9 | 0.78 | 36% | 21% |
-| + TVE + VRC + SDC | 70.4 | 78.2 | 0.83 | 61% | 31% |
-| + TVE + VRC + SDC + CPG | 72.1 | 80.3 | 0.88 | 61% | 58% |
-| + All layers (RFG + CCB + FV) | **74.8** | **82.6** | **0.94** | **61%** | **71%** |
+| Dataset | Naive RAG EM | CRAG EM | VORTEXRAG EM |
+|---------|------------|---------|-------------|
+| NaturalQuestions | 58.4 | 64.2 | **71.3** |
+| HotpotQA (multi-hop) | 52.6 | 59.7 | **68.9** |
+| MuSiQue | 41.8 | 48.9 | **57.2** |
+| 2WikiMultiHopQA | 63.1 | 69.4 | **76.5** |
 
-Each layer provides independent, additive improvement. TVE drives the biggest single-layer gain (+4.1 EM). CPG drives the biggest faithfulness jump (+0.05). FV provides the final faithfulness ceiling.
+The gap is biggest on MuSiQue (+15.4 EM over Naive RAG) — the hardest multi-hop set, where causal chain reasoning matters most.
 
-### Per-Dataset Breakdown
+---
 
-| Dataset | Metric | Naive RAG | CRAG | **VORTEXRAG** |
-|---------|--------|-----------|------|--------------|
-| NaturalQuestions | EM | 58.4 | 64.2 | **71.3** |
-| NaturalQuestions | F1 | 65.1 | 71.8 | **79.4** |
-| HotpotQA (multi-hop) | EM | 52.6 | 59.7 | **68.9** |
-| HotpotQA (multi-hop) | F1 | 61.3 | 68.4 | **77.8** |
-| MuSiQue | EM | 41.8 | 48.9 | **57.2** |
-| MuSiQue | F1 | 53.7 | 61.2 | **70.9** |
-| 2WikiMultiHopQA | EM | 63.1 | 69.4 | **76.5** |
-| 2WikiMultiHopQA | F1 | 70.8 | 76.9 | **83.7** |
+## Domain presets
 
-VORTEXRAG achieves the largest gains on multi-hop datasets (MuSiQue: +15.4 EM vs Naive RAG) where causal chain reasoning is most critical.
+VORTEXRAG ships with presets for 12 domains. Each preset tunes the causal drift threshold (τ), context poison threshold (θ_CPG), and TVE arm weights automatically:
+
+| Domain | What it's good for |
+|--------|--------------------|
+| `medical` | Clinical QA, drug mechanisms, pathway analysis |
+| `biomedical` | PubMed literature, BioASQ, gene-disease chains |
+| `scientific` | Research papers, progenitor chain reasoning |
+| `legal` | Case law, precedent chains, statutory interpretation |
+| `financial` | Earnings, macro events, market causation |
+| `code` | Docs, runtime vs syntax error separation |
+| `cybersecurity` | CVE analysis, exploit chain ordering |
+| `educational` | Conceptual explanations, topic progression |
+| `historical` | Event causation, timeline reasoning |
+| `customer` | Support tickets, product version matching |
+| `general` | Default — balanced for general QA |
+| `creative` | Creative writing, associative retrieval |
+
+```python
+from vortexrag import VortexRAG, VortexRAGConfig
+
+rag = VortexRAG(corpus="pubmed_abstracts/", config=VortexRAGConfig(domain="biomedical"))
+```
 
 ---
 
 ## Use Cases
 
-### 1. Legal QA — Multi-hop Precedent Chains
+### Medical / Biomedical
 
-**Domain:** `legal` | **τ=0.40** | **θ_CPG=4.5**
+Drug mechanism queries often conflate parallel causal pathways — mRNA synthesis vs protein synthesis, for example. CPG separates them. CCB orders from molecular mechanism → cellular effect → clinical outcome.
 
-Constitutional and common-law questions often require tracing a chain of precedents across decades. Standard RAG retrieves temporally adjacent cases but fails to distinguish which cases *causally* extend a given ruling.
+### Legal
 
-**VORTEXRAG advantage:** SDC's causal arm detects jurisdictional and temporal drift. CPG separates parallel legal threads (e.g., First Amendment cases bleeding into Fourth Amendment reasoning). CCB orders precedents by causal depth: foundational ruling → extension → application.
+Constitutional questions need causally ordered precedent chains: foundational ruling → extension → application. SDC detects jurisdictional drift. CPG keeps parallel legal threads (First vs Fourth Amendment) from mixing.
 
-```python
-config = VortexRAGConfig(domain="legal")
-# Automatically: tau=0.40, theta_cpg=4.5, alpha=(0.35,0.30,0.35)
-```
+### Code documentation
 
----
+`SyntaxError` and `RuntimeError` both match "errors in Python" but are causally different. The syntactic TVE arm detects grammar vs runtime patterns. SDC filters by mechanism.
 
-### 2. Medical Synthesis — Mechanism Conflation
+### Cybersecurity
 
-**Domain:** `medical` | **τ=0.35** | **θ_CPG=5.0**
+CVE queries need attack vector → mechanism → impact → mitigation in that order. SDC strict mode (τ=0.45) enforces stage separation. CCB orders the exploit chain correctly.
 
-Drug mechanism queries require distinguishing parallel causal pathways. Without CPG, mRNA and protein synthesis pathways contaminate each other in the context window.
+### Enterprise knowledge bases
 
-**VORTEXRAG advantage:** CPG separates parallel causal pathways into distinct context chains. SDC rejects upstream-cause chunks when the query asks about a downstream mechanism. CCB orders from molecular mechanism → cellular effect → clinical outcome.
-
----
-
-### 3. Code Documentation — Syntax vs Runtime Confusion
-
-**Domain:** `code` | **τ=0.60** | **β=0.45** (syntactic dominant)
-
-Python documentation queries commonly conflate compile-time and runtime semantics. `SyntaxError` and `RuntimeError` both describe "errors in Python" — cosine similarity cannot distinguish them.
-
-**VORTEXRAG advantage:** The syntactic TVE arm extracts structural patterns (grammar vs event loop). SDC filters based on causal mechanism (parser constraint vs runtime state).
-
----
-
-### 4. Scientific Reasoning — Observable vs Causal Properties
-
-**Domain:** `scientific` | **τ=0.30** | **θ_CPG=4.0**
-
-Scientific QA often conflates *observable properties* with *root causes*. A supernova question asking about "progenitor systems" should not receive answers about luminosity curves — they're causally adjacent but wrong.
-
-**VORTEXRAG advantage:** The causal TVE arm learns to distinguish "what causes X" (causal chain) from "what is observed when X happens" (property description). SDC gate τ=0.30 makes this the strictest domain.
-
----
-
-### 5. Financial Analysis — Market Causation
-
-**Domain:** `financial` | **τ=0.50** | **α=0.45**
-
-Financial queries about "why X happened" must distinguish correlation (two events co-occurred) from causation (one event drove the other). Earnings reports, Fed decisions, and macro events are all semantically similar — but only some causally explain a price movement.
-
-**VORTEXRAG advantage:** TVE causal arm detects temporal ordering and mechanism language. SDC rejects correlation-only chunks. CPG prevents simultaneous competing causal narratives from appearing in the same context window.
-
----
-
-### 6. Educational QA — Conceptual Chain Building
-
-**Domain:** `educational` | **τ=0.65** | **α=0.55**
-
-Educational explanations need a clear conceptual progression: prerequisite concept → core concept → application. Standard RAG dumps all related chunks, disrupting the learning sequence.
-
-**VORTEXRAG advantage:** CCB's causal depth ordering maps naturally to conceptual difficulty levels. Root-cause chunks (foundational definitions) appear first; application chunks appear last. This creates a coherent "textbook explanation" structure from retrieved chunks.
-
----
-
-### 7. Customer Support — Intent-Grounded Resolution
-
-**Domain:** `customer` | **τ=0.95** | **α=0.60**
-
-Customer queries about "how to fix X" require matching the exact product version, configuration, and symptom. Similar-sounding issues with different root causes (network vs software vs hardware) poison the context window.
-
-**VORTEXRAG advantage:** CPG separates support threads by root cause. SDC ensures retrieved solutions match the customer's specific causal scenario, not just the symptom vocabulary. FV verifies the answer actually addresses the stated issue.
-
----
-
-### 8. Cybersecurity — Exploit Chain Analysis
-
-**Domain:** `cybersecurity` | **τ=0.45** | **θ_CPG=4.0**
-
-Security queries about vulnerabilities require distinguishing attack vector → exploit mechanism → impact → mitigation. These four stages are semantically similar (they all discuss the same CVE) but causally distinct.
-
-**VORTEXRAG advantage:** SDC strict mode (τ=0.45) enforces causal stage separation. CCB orders the exploit chain correctly: vector first, then mechanism, then impact, then mitigation. This prevents LLMs from suggesting a mitigation that addresses the wrong stage.
-
----
-
-### 9. Historical Analysis — Causal Event Chains
-
-**Domain:** `historical` | **τ=0.90** | **α=0.45**
-
-Historical queries about causation (e.g., "What caused WWI?") attract many semantically similar chunks about WWI-era events — but only some are causally antecedent to the war itself. Post-war consequences, parallel events, and background context all have high cosine similarity.
-
-**VORTEXRAG advantage:** SDC with τ=0.90 allows moderate causal drift (historical events are inherently interconnected) while still filtering pure consequences. CPG prevents post-war narrative from poisoning the pre-war causal analysis.
-
----
-
-### 10. Enterprise Knowledge Base — Stale Information Poisoning
-
-**Domain:** `general` | **FV δ_FV=0.10** (strict)
-
-Enterprise KBs accumulate stale documents over time. A query about current policy retrieves both the current policy and older superseded versions — all with high cosine similarity (same vocabulary, same entities).
-
-**VORTEXRAG advantage:** FV verifies the answer against the most recent context. If stale chunks poison the generation, ΔR increases (the answer contradicts current W*) and FV triggers regeneration. Temporal metadata integration allows SDC to penalize temporally drifted chunks.
+When old and new policy documents coexist, FV catches answers that incorporate stale information — ΔR increases when the answer contradicts the most recent context, triggering regeneration.
 
 ---
 
