@@ -12,6 +12,12 @@ Usage:
     # Use directly
     docs = retriever.invoke("What causes sepsis?")
 
+    # Async
+    docs = await retriever.ainvoke("What causes sepsis?")
+
+    # Batch
+    results = retriever.batch(["query 1", "query 2", "query 3"])
+
     # Or inside a LangChain chain (when langchain-core is installed)
     from langchain.chains import RetrievalQA
     chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
@@ -43,12 +49,15 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# Standalone retriever (no LangChain dependency required)
+# Standalone retriever (works with or without langchain-core)
 # ---------------------------------------------------------------------------
 
 class _VortexRAGRetrieverBase:
     """
-    Standalone VortexRAGRetriever — works without langchain-core.
+    VortexRAGRetriever base — works without langchain-core.
+
+    Async and batch methods are available on all instances regardless of
+    whether langchain-core is installed.
 
     Parameters
     ----------
@@ -61,6 +70,8 @@ class _VortexRAGRetrieverBase:
         Full pipeline config override (ignores domain/verbose if set).
     verbose : bool
         Print pipeline progress.
+    max_workers : int
+        Thread pool size for batch/async retrieval.
     """
 
     def __init__(
@@ -108,12 +119,12 @@ class _VortexRAGRetrieverBase:
         return self
 
     # ------------------------------------------------------------------
-    # Core retrieval
+    # Sync retrieval
     # ------------------------------------------------------------------
 
     def get_relevant_documents(self, query: str) -> list:
         """
-        Retrieve top-k documents relevant to `query` via the VORTEXRAG pipeline.
+        Retrieve top-k documents for `query` via the VORTEXRAG pipeline.
 
         Returns LangChain Document objects when langchain-core is installed,
         otherwise plain dicts with `page_content` and `metadata` keys.
@@ -155,8 +166,30 @@ class _VortexRAGRetrieverBase:
             ]
 
     def invoke(self, query: str, **kwargs: Any) -> list:
-        """Alias for get_relevant_documents — compatible with newer LangChain."""
+        """Alias for get_relevant_documents."""
         return self.get_relevant_documents(query)
+
+    # ------------------------------------------------------------------
+    # Async and batch retrieval (always available, no extra deps)
+    # ------------------------------------------------------------------
+
+    async def aget_relevant_documents(self, query: str) -> list:
+        """Non-blocking async retrieval via thread executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(self._executor, self.get_relevant_documents, query)
+
+    async def ainvoke(self, query: str, **kwargs: Any) -> list:
+        """Async alias for aget_relevant_documents."""
+        return await self.aget_relevant_documents(query)
+
+    def batch(self, queries: list) -> list:
+        """Concurrent sync batch retrieval across multiple queries."""
+        futures = [self._executor.submit(self.get_relevant_documents, q) for q in queries]
+        return [f.result() for f in futures]
+
+    async def abatch(self, queries: list) -> list:
+        """Concurrent async batch retrieval via asyncio.gather."""
+        return await asyncio.gather(*[self.aget_relevant_documents(q) for q in queries])
 
 
 # ---------------------------------------------------------------------------
@@ -168,8 +201,7 @@ if _LANGCHAIN_AVAILABLE:
         """
         LangChain BaseRetriever subclass backed by VORTEXRAG.
 
-        Use this when building LangChain pipelines.  All parameters from
-        _VortexRAGRetrieverBase are supported.
+        Inherits all methods from _VortexRAGRetrieverBase including async/batch.
 
         Example::
 
@@ -181,17 +213,15 @@ if _LANGCHAIN_AVAILABLE:
             chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
         """
 
-        # Pydantic v2 model_config: allow arbitrary types and extra private attrs
         model_config = {"arbitrary_types_allowed": True}
 
         def model_post_init(self, __context: Any) -> None:
-            # Pydantic calls this after __init__ — initialise our private state
             if not hasattr(self, "_rag"):
                 self._rag = None
             if not hasattr(self, "_texts"):
                 self._texts = []
             if not hasattr(self, "_executor"):
-                self._executor = ThreadPoolExecutor(max_workers=4)    
+                self._executor = ThreadPoolExecutor(max_workers=4)
 
         def _get_relevant_documents(
             self,
@@ -200,24 +230,7 @@ if _LANGCHAIN_AVAILABLE:
             run_manager: Optional["CallbackManagerForRetrieverRun"] = None,
         ) -> "List[Document]":
             return self.get_relevant_documents(query)  # type: ignore[return-value]
-        
-        async def aget_relevant_documents(self, query):
-            loop = asyncio.get_event_loop()
-            return await loop.run_in_executor(self._executor, self.get_relevant_documents, query)
 
-        async def ainvoke(self, query, **kwargs):
-            return await self.aget_relevant_documents(query)
-
-        def batch(self, queries):
-            futures = [self._executor.submit(self.get_relevant_documents, q) for q in queries]
-            return [f.result() for f in futures]
-
-        async def abatch(self, queries):
-            return await asyncio.gather(*[self.aget_relevant_documents(q) for q in queries])
 else:
-    # Fallback: plain class, no LangChain dependency
+    # Fallback: plain class, all methods including async/batch still available
     VortexRAGRetriever = _VortexRAGRetrieverBase  # type: ignore[misc,assignment]
-
-
-
-
