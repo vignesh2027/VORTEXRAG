@@ -19,7 +19,8 @@ Usage:
 """
 
 from __future__ import annotations
-
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import sys
 import os
 from typing import List, Optional, Any
@@ -68,6 +69,7 @@ class _VortexRAGRetrieverBase:
         top_k: int = 5,
         config: Optional[VortexRAGConfig] = None,
         verbose: bool = False,
+        max_workers: int = 4,
     ):
         if config is not None:
             self._config = config
@@ -78,6 +80,7 @@ class _VortexRAGRetrieverBase:
         self._top_k = top_k
         self._rag: Optional[VortexRAG] = None
         self._texts: list[str] = []
+        self._executor = ThreadPoolExecutor(max_workers=max_workers)
 
     # ------------------------------------------------------------------
     # Document management
@@ -187,6 +190,8 @@ if _LANGCHAIN_AVAILABLE:
                 self._rag = None
             if not hasattr(self, "_texts"):
                 self._texts = []
+            if not hasattr(self, "_executor"):
+                self._executor = ThreadPoolExecutor(max_workers=4)    
 
         def _get_relevant_documents(
             self,
@@ -195,7 +200,24 @@ if _LANGCHAIN_AVAILABLE:
             run_manager: Optional["CallbackManagerForRetrieverRun"] = None,
         ) -> "List[Document]":
             return self.get_relevant_documents(query)  # type: ignore[return-value]
+        
+        async def aget_relevant_documents(self, query):
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(self._executor, self.get_relevant_documents, query)
 
+        async def ainvoke(self, query, **kwargs):
+            return await self.aget_relevant_documents(query)
+
+        def batch(self, queries):
+            futures = [self._executor.submit(self.get_relevant_documents, q) for q in queries]
+            return [f.result() for f in futures]
+
+        async def abatch(self, queries):
+            return await asyncio.gather(*[self.aget_relevant_documents(q) for q in queries])
 else:
     # Fallback: plain class, no LangChain dependency
     VortexRAGRetriever = _VortexRAGRetrieverBase  # type: ignore[misc,assignment]
+
+
+
+
